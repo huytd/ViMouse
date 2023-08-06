@@ -272,43 +272,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, InputHookDelegate {
         task.launch()
     }
     func move(_ dx: Int, _ dy: Int, _ flags: InputHook.Flags, _ pressed: Bool){
-        switch(flags.tuple()){
-        //   (ctrl, shift, opt  , cmd  , fnc  , wheel)
-        case (true, false, false, false, false, false):
-            if(pressed && GetCurrentEventTime() - _wokenupAt >= 0.2){
-                pressArrow(dx, dy, .maskControl)
-                /*switch(dx,dy){
-                case (0, -1):
-                    press(kVK_Tab, CGEventFlags(rawValue:CGEventFlags.MaskControl.rawValue | CGEventFlags.MaskShift.rawValue))
-                case (0, 1): press(kVK_Tab, .MaskControl)
-                default: break
-                }*/
-                /*switch(dx, dy){
-                case (-1, 0): spaces_movetospace(-1)
-                case(1, 0): spaces_movetospace(1)
-                case (0, 1): runMissionControl(["2"])
-                case (0, -1): runMissionControl(["3"])
-                default: break
-                }*/
-            }
-            reset()
-        case (true, true, false, true, false, false):
-            if(pressed){pressArrow(dx, dy, .maskCommand)}
-        //case (true, false, false, true, false):
-        //    if(pressed){pressArrow(dx, dy, .MaskNonCoalesced)}
-        default:
-            switch(dx, dy){
+        if flags.shift {
+            _speedFaster = pressed
+        }
+        if flags.opt {
+            _speedSlower = pressed
+        }
+        switch(dx, dy){
             case (-1, 0): _moveL = pressed
             case (1, 0): _moveR = pressed
             case (0, -1): _moveU = pressed
             case (0, 1): _moveD = pressed
             default: break
-            }
-            _dx = (_moveR ? 1:0) - (_moveL ? 1:0)
-            _dy = (_moveD ? 1:0) - (_moveU ? 1:0)
-    //        if(pressed){ _dx += CGFloat(dx); _dy += CGFloat(dy) }
-      //      else{ _dx -= CGFloat(dx); _dy -= CGFloat(dy) }
         }
+        _dx = (_moveR ? 1:0) - (_moveL ? 1:0)
+        _dy = (_moveD ? 1:0) - (_moveU ? 1:0)
     }
     fileprivate func enableMouseMode(){
         NSLog("mouse mode enabled")
@@ -332,6 +310,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, InputHookDelegate {
             if(flags.cmd){return false}
             if(flags.ctrl && flags.shift){return false}
             switch(Int(keycode)){
+            case kVK_Escape:if(!pressed){ disableMouseMode() }
             case kVK_ANSI_I: if(!pressed){ disableMouseMode() }
             case kVK_ANSI_G: _inputHook.wheel = pressed
             case kVK_ANSI_H: move(-1, 0, flags, pressed)

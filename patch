@@ -1,0 +1,138 @@
+diff --git a/README.md b/README.md
+index 8b39d3f..a55e2aa 100644
+--- a/README.md
++++ b/README.md
+@@ -1,31 +1,23 @@
+ # ViMouse
+ Control mouse cursor using keyboard like the Vim keybind ;)
+ 
+-This is for Mac OS.
+-ViMouse introduce your Mac two modes Normal and Input Mode such like the Vim.
+-After you start up the ViMouse, the indigator will appear at the menu bar.
+-When Normal mode, the menu item is highlighted and you can controll cursor.
+-When Input mode, you can input any key except `^ ;` or `<fn> ;` that is the mode switch.
+-
+-NOTE:
+-This product is tuned up for me, so I recommend you to see the source and adjust parameters or key mapping.
++This fork implements a slightly different keybinding compared to the [original version](https://github.com/genki/ViMouse).
+ 
+ ## Key mapping in Normal mode
+ * `h`, `j`, `k`, `l`: acts as you know in normal mode.
+-* `i`, `<英数>`, `<かな>`: switch to Input mode
++* `i`: switch to Input mode
+ * `<space>`: Left click
+ * `n`: Middle click
+ * `;`: Right click
+-* `a`: Very slow cursor speed
++* `a`, `<opt>`: Very slow cursor speed
+ * `s`: Slow cursor speed
+ * `d`: Fast cursor speed
+-* `f`: Very fast cursor speed
++* `f`, `<shift>`: Very fast cursor speed
+ * `g`: Acts as mouse wheel. Use combined with `h`,`j`,`k`,`l` and `a`, `s`, `d`, `f`.
+ * `y`: Yank
+ * `p`: Paste
+-* `u`: Undo 
++* `u`: Undo
+ * `r`: ⌘R, typically reload.
+ 
+ ## Key mapping in Input mode
+-* `^;`, `<fn>;`: switch to Normal mode;
+-* `^H`, `^J`, `^K`, `^L`: acts as arrow keys
++* `^;`, `<fn>;`, `<ESC>`: switch to Normal mode;
+diff --git a/ViMouse.xcodeproj/project.pbxproj b/ViMouse.xcodeproj/project.pbxproj
+index 33319e1..8a85a2c 100644
+--- a/ViMouse.xcodeproj/project.pbxproj
++++ b/ViMouse.xcodeproj/project.pbxproj
+@@ -220,7 +220,7 @@
+ 				TargetAttributes = {
+ 					FB6B6BE01B5B57C6006E606C = {
+ 						CreatedOnToolsVersion = 7.0;
+-						DevelopmentTeam = S47HLAL3P5;
++						DevelopmentTeam = H8K5TGST7W;
+ 						LastSwiftMigration = 1340;
+ 						ProvisioningStyle = Automatic;
+ 					};
+@@ -452,7 +452,7 @@
+ 				CODE_SIGN_IDENTITY = "Apple Development";
+ 				CODE_SIGN_STYLE = Automatic;
+ 				COMBINE_HIDPI_IMAGES = YES;
+-				DEVELOPMENT_TEAM = S47HLAL3P5;
++				DEVELOPMENT_TEAM = H8K5TGST7W;
+ 				INFOPLIST_FILE = ViMouse/Info.plist;
+ 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+ 				PRODUCT_BUNDLE_IDENTIFIER = com.s21g.ViMouse;
+@@ -472,7 +472,7 @@
+ 				CODE_SIGN_IDENTITY = "Apple Development";
+ 				CODE_SIGN_STYLE = Automatic;
+ 				COMBINE_HIDPI_IMAGES = YES;
+-				DEVELOPMENT_TEAM = S47HLAL3P5;
++				DEVELOPMENT_TEAM = H8K5TGST7W;
+ 				INFOPLIST_FILE = ViMouse/Info.plist;
+ 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+ 				PRODUCT_BUNDLE_IDENTIFIER = com.s21g.ViMouse;
+diff --git a/ViMouse/AppDelegate.swift b/ViMouse/AppDelegate.swift
+index 6d255d9..69138b0 100644
+--- a/ViMouse/AppDelegate.swift
++++ b/ViMouse/AppDelegate.swift
+@@ -272,43 +272,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, InputHookDelegate {
+         task.launch()
+     }
+     func move(_ dx: Int, _ dy: Int, _ flags: InputHook.Flags, _ pressed: Bool){
+-        switch(flags.tuple()){
+-        //   (ctrl, shift, opt  , cmd  , fnc  , wheel)
+-        case (true, false, false, false, false, false):
+-            if(pressed && GetCurrentEventTime() - _wokenupAt >= 0.2){
+-                pressArrow(dx, dy, .maskControl)
+-                /*switch(dx,dy){
+-                case (0, -1):
+-                    press(kVK_Tab, CGEventFlags(rawValue:CGEventFlags.MaskControl.rawValue | CGEventFlags.MaskShift.rawValue))
+-                case (0, 1): press(kVK_Tab, .MaskControl)
+-                default: break
+-                }*/
+-                /*switch(dx, dy){
+-                case (-1, 0): spaces_movetospace(-1)
+-                case(1, 0): spaces_movetospace(1)
+-                case (0, 1): runMissionControl(["2"])
+-                case (0, -1): runMissionControl(["3"])
+-                default: break
+-                }*/
+-            }
+-            reset()
+-        case (true, true, false, true, false, false):
+-            if(pressed){pressArrow(dx, dy, .maskCommand)}
+-        //case (true, false, false, true, false):
+-        //    if(pressed){pressArrow(dx, dy, .MaskNonCoalesced)}
+-        default:
+-            switch(dx, dy){
++        if flags.shift {
++            _speedFaster = pressed
++        }
++        if flags.opt {
++            _speedSlower = pressed
++        }
++        switch(dx, dy){
+             case (-1, 0): _moveL = pressed
+             case (1, 0): _moveR = pressed
+             case (0, -1): _moveU = pressed
+             case (0, 1): _moveD = pressed
+             default: break
+-            }
+-            _dx = (_moveR ? 1:0) - (_moveL ? 1:0)
+-            _dy = (_moveD ? 1:0) - (_moveU ? 1:0)
+-    //        if(pressed){ _dx += CGFloat(dx); _dy += CGFloat(dy) }
+-      //      else{ _dx -= CGFloat(dx); _dy -= CGFloat(dy) }
+         }
++        _dx = (_moveR ? 1:0) - (_moveL ? 1:0)
++        _dy = (_moveD ? 1:0) - (_moveU ? 1:0)
+     }
+     fileprivate func enableMouseMode(){
+         NSLog("mouse mode enabled")
+@@ -332,6 +310,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, InputHookDelegate {
+             if(flags.cmd){return false}
+             if(flags.ctrl && flags.shift){return false}
+             switch(Int(keycode)){
++            case kVK_Escape:if(!pressed){ disableMouseMode() }
+             case kVK_ANSI_I: if(!pressed){ disableMouseMode() }
+             case kVK_ANSI_G: _inputHook.wheel = pressed
+             case kVK_ANSI_H: move(-1, 0, flags, pressed)
